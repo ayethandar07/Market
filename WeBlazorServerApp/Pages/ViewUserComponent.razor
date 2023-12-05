@@ -1,0 +1,156 @@
+﻿@page "/userlist"
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore;
+@using System.Security.Claims;
+@inject UserManager<IdentityUser> UserManager
+@inject IUserClaimsPrincipalFactory<IdentityUser> ClaimsPrincipalFactory
+@inject NavigationManager NavigationManager
+
+<h3>User List</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Position</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Users)
+        {
+            <tr>
+                <td>@user.UserName</td>
+                <td>@user.Email</td>
+                <td>
+                    @if (user.IsEditing)
+                    {
+                        <input @bind="user.EditedPosition" />
+                    }
+                    else
+                    {
+                        @user.Position
+                    }
+                </td>
+                <td>
+                    @if (!user.IsEditing)
+                    {
+                        <button @onclick="() => EditUserPosition(user)" class="btn btn-link">Edit</button>
+                        <button @onclick="() => DeleteUser(user)" class="btn btn-link">Delete</button>
+                    }
+                    else
+                    {
+                        <button @onclick="() => SaveEditedPosition(user)" class="btn btn-link">Save</button>
+                        <button @onclick="() => CancelEdit(user)" class="btn btn-link">Cancel</button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<div>
+    <button class="btn btn-primary" @onclick="NavigateToAddUser">Add User</button>
+</div>
+
+@code {
+    private List<UserWithPosition> Users = new List<UserWithPosition>();
+    private UserWithPosition NewUser = new UserWithPosition();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var identityUsers = await UserManager.Users.ToListAsync();
+
+        foreach (var identityUser in identityUsers)
+        {
+            var claimsPrincipal = await ClaimsPrincipalFactory.CreateAsync(identityUser);
+            var positionClaim = claimsPrincipal.Claims.FirstOrDefault(claim => claim.Type == "Position");
+
+            Users.Add(new UserWithPosition
+                {
+                    UserName = identityUser.UserName,
+                    Email = identityUser.Email,
+                    Position = positionClaim?.Value ?? "N/A",
+                    EditedPosition = positionClaim?.Value ?? "N/A",
+                    IsEditing = false,
+                    UserId = identityUser.Id // Store the UserId
+                });
+        }
+    }
+
+    private void EditUserPosition(UserWithPosition user)
+    {
+        user.IsEditing = true;
+    }
+
+    private async Task SaveEditedPosition(UserWithPosition user)
+    {
+        // Update the user's claim value for "Position" in the database
+        var identityUser = await UserManager.FindByIdAsync(user.UserId);
+
+        if (identityUser != null)
+        {
+            var currentClaims = await UserManager.GetClaimsAsync(identityUser);
+
+            // Find the existing "Position" claim and update its value
+            var positionClaim = currentClaims.FirstOrDefault(c => c.Type == "Position");
+
+            if (positionClaim != null)
+            {
+                var result = await UserManager.ReplaceClaimAsync(identityUser, positionClaim, new Claim("Position", user.EditedPosition));
+
+                if (result.Succeeded)
+                {
+                    user.Position = user.EditedPosition; // Update the displayed position
+                    user.IsEditing = false; // Exit edit mode
+                }
+            }
+        }
+    }
+
+    private void CancelEdit(UserWithPosition user)
+    {
+        user.IsEditing = false; // Exit edit mode without saving changes
+        user.EditedPosition = user.Position; // Revert the edited position to the original value
+    }
+
+    private async Task DeleteUser(UserWithPosition user)
+    {
+        var identityUser = await UserManager.FindByIdAsync(user.UserId);
+
+        if (identityUser != null)
+        {
+            var result = await UserManager.DeleteAsync(identityUser);
+
+            if (result.Succeeded)
+            {
+                Users.Remove(user); // Remove the user from the list
+            }
+            else
+            {
+                // Handle the case where user deletion fails (display a message, log an error, etc.)
+            }
+        }
+    }
+
+    private void NavigateToAddUser()
+    {
+        // Navigate to the AddUser page
+        NavigationManager.NavigateTo("/adduser");
+    }
+
+    public class UserWithPosition
+    {
+        public string UserName { get; set; }
+        public string Email { get; set; }
+        public string Position { get; set; }
+        public string EditedPosition { get; set; } // Track edited position
+        public bool IsEditing { get; set; }
+        public string UserId { get; set; } // Store the UserId
+    }
+}

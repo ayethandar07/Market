@@ -1,0 +1,93 @@
+﻿@page "/categories"
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@using CoreBussiness;
+@inject UseCases.UseCasesInterfaces.IViewCategoriesUseCase ViewCategoriesUseCase
+@inject NavigationManager NavigationManager
+@inject UseCases.UseCasesInterfaces.IDeleteCategoryUseCase DeleteCategoryUseCase
+
+<h3>Manage Categories</h3>
+
+@if(categories != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th> Name </th>
+                <th> Description </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var category in displayedCategories)
+            {
+                <tr>
+                    <td> @category.Name </td>  
+                    <td> @category.Description </td>
+                    <td>
+                        <button type="button" @onclick="@(() => EditCategory(category))" class="btn btn-link"> Edit </button>
+                        <button type="button" @onclick="@(() => DeleteCategory(category.CategoryId))" class="btn btn-link"> Delete </button>
+                    </td>
+                </tr>
+            }            
+        </tbody>
+    </table>
+}
+<br/>
+<button type="button" @onclick="OnClickAddCategory" class="btn btn-primary"> Add Category </button>
+
+<div class="blockquote-footer">
+    <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" IsFirstPage="IsFirstPage" IsLastPage="IsLastPage" PageChanged="HandlePageChange" />
+</div>
+
+@code {
+    private List<Category> categories;
+
+    private int CurrentPage = 1;
+    private int pageSize = 10;
+    private int TotalPages => (int)Math.Ceiling((double)categories.Count() / pageSize);
+    private bool IsFirstPage => CurrentPage == 1;
+    private bool IsLastPage => CurrentPage == TotalPages;
+    private IEnumerable<Category> displayedCategories;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        LoadCategories();
+    }
+
+    private void LoadCategories()
+    {
+        categories = ViewCategoriesUseCase.Execute()?.ToList();
+        UpdateDisplayedCategories();
+    }
+
+    private void UpdateDisplayedCategories()
+    {
+        displayedCategories = categories
+            .Skip((CurrentPage - 1) * pageSize)
+            .Take(pageSize);
+    }
+
+    private void HandlePageChange(int newPage)
+    {
+        CurrentPage = newPage;
+        UpdateDisplayedCategories();
+    }
+
+    private void OnClickAddCategory()
+    {
+        NavigationManager.NavigateTo("/addcategory");
+    }
+
+    private void EditCategory(Category category)
+    {
+        NavigationManager.NavigateTo($"/editcategory/{category.CategoryId}");
+    }
+
+    private void DeleteCategory(int categoryId)
+    {
+        DeleteCategoryUseCase.Delete(categoryId);
+        LoadCategories();
+    }
+}

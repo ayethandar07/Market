@@ -1,0 +1,90 @@
+﻿@page "/adduser"
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims;
+@inject UserManager<IdentityUser> UserManager
+@inject NavigationManager Navigation
+
+<h3>Add User</h3>
+
+<div>
+    <form>
+        <div class="mb-3">
+            <label for="username">Username</label>
+            <input type="text" class="form-control" id="username" @bind="NewUser.UserName" />
+        </div>
+        <div class="mb-3">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" @bind="NewUser.Email" />
+        </div>
+        <div class="mb-3">
+            <label for="password">Password</label>
+            <input type="password" class="form-control" id="password" @bind="NewUser.Password" />
+        </div>
+        <div class="mb-3">
+            <label for="confirmPassword">Confirm Password</label>
+            <input type="password" class="form-control" id="confirmPassword" @bind="NewUser.ConfirmPassword" />
+        </div>
+        <div class="mb-3">
+            <label for="position">Position</label>
+            <input type="text" class="form-control" id="position" @bind="NewUser.Position" />
+        </div>
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="emailConfirmed" @bind="NewUser.EmailConfirmed" />
+            <label class="form-check-label" for="emailConfirmed">Email Confirmed</label>
+        </div>
+        <br />
+        <button type="button" class="btn btn-primary" @onclick="AddUser">Add</button>
+        <button type="button" class="btn btn-primary" @onclick="NavigateToList">Cancel</button>
+    </form>
+</div>
+
+@code {
+    private UserWithPosition NewUser = new UserWithPosition();
+
+    private async Task AddUser()
+    {
+        if (NewUser.Password != NewUser.ConfirmPassword)
+        {
+            // Password and confirm password do not match
+            // You can handle this case as needed, e.g., display an error message
+            return;
+        }
+
+        var newUser = new IdentityUser
+            {
+                UserName = NewUser.UserName,
+                Email = NewUser.Email,
+                EmailConfirmed = NewUser.EmailConfirmed // Set EmailConfirmed based on the checkbox value
+            };
+
+        var result = await UserManager.CreateAsync(newUser, NewUser.Password);
+
+        if (result.Succeeded)
+        {
+            // Add the "Position" claim to the new user
+            result = await UserManager.AddClaimAsync(newUser, new Claim("Position", NewUser.Position));
+
+            if (result.Succeeded)
+            {
+                // Navigate back to the user list page
+                Navigation.NavigateTo("/userlist");
+            }
+        }
+    }
+
+    private void NavigateToList()
+    {
+        // Navigate to the user list page
+        Navigation.NavigateTo("/userlist");
+    }
+
+    public class UserWithPosition
+    {
+        public string UserName { get; set; }
+        public string Email { get; set; }
+        public string Password { get; set; }
+        public string ConfirmPassword { get; set; }
+        public string Position { get; set; }
+        public bool EmailConfirmed { get; set; } // Checkbox for email confirmation
+    }
+}

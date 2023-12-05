@@ -1,0 +1,56 @@
+﻿@page "/pagination"
+
+<div class="pagination-container">
+    <!-- Pagination controls -->
+    <button @onclick="PreviousPage" class="pagination-button @((IsFirstPage) ? "disabled" : "")">Previous</button>
+
+    @for (int i = 1; i <= TotalPages; i++)
+    {
+        int pageNumber = i;
+        <button @onclick="() => GoToPage(pageNumber)" class="pagination-button @((i == CurrentPage) ? "active" : "")">@i</button>
+    }
+
+    <button @onclick="NextPage" class="pagination-button @((IsLastPage) ? "disabled" : "")">Next</button>
+</div>
+
+
+@code {
+    [Parameter]
+    public int CurrentPage { get; set; }
+
+    [Parameter]
+    public int TotalPages { get; set; }
+
+    [Parameter]
+    public bool IsFirstPage { get; set; }
+
+    [Parameter]
+    public bool IsLastPage { get; set; }
+
+    [Parameter]
+    public EventCallback<int> PageChanged { get; set; }
+
+    private void NextPage()
+    {
+        if (!IsLastPage)
+        {
+            CurrentPage++;
+            PageChanged.InvokeAsync(CurrentPage);
+        }
+    }
+
+    private void PreviousPage()
+    {
+        if (!IsFirstPage)
+        {
+            CurrentPage--;
+            PageChanged.InvokeAsync(CurrentPage);
+        }
+    }
+
+    private void GoToPage(int pageNumber)
+    {
+        CurrentPage = pageNumber;
+        PageChanged.InvokeAsync(CurrentPage);
+    }
+}

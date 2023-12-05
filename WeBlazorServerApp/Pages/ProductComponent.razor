@@ -1,0 +1,99 @@
+﻿@page "/product"
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@using CoreBussiness;
+@inject UseCases.UseCasesInterfaces.IViewProductsUseCase ViewProductsUseCase
+@inject UseCases.UseCasesInterfaces.IGetCategoryByIdUseCase GetCategoryByIdUseCase
+@inject NavigationManager NavigationManager
+@inject UseCases.UseCasesInterfaces.IDeleteProductUseCase DeleteProductUseCase
+
+<h3>Products</h3>
+
+@if(products != null)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th> Product Category </th>
+                <th> Product Name </th>
+                <th> Price </th>
+                <th> Quantity </th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in displayedProducts)
+            {
+                <tr>
+                    <td> @GetCategoryByIdUseCase.Execute(product.CategoryId.Value)?.Name </td>
+                    <td> @product.Name </td>
+                    <td> @(Math.Round(product.Price.Value, 2))</td>
+                    <td> @product.Quantity </td>
+                    <td>
+                        <button type="button" class="btn btn-link" @onclick="@(()=>OnEditProduct(product))"> Edit </button>
+                        &nbsp;
+                        <button type="button" class="btn btn-link" @onclick="@(()=>OnDelteProduct(product.ProductId))"> Delete </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+<br/>
+<button type="button" @onclick="OnClickAddProduct" class="btn btn-primary"> Add Product </button>
+
+<div class="blockquote-footer">
+    <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" IsFirstPage="IsFirstPage" IsLastPage="IsLastPage" PageChanged="HandlePageChange" />
+</div>
+
+@code {
+    private IEnumerable<Product> products;
+
+    private int CurrentPage = 1;
+    private int pageSize = 10;
+    private int TotalPages => (int)Math.Ceiling((double)products.Count() / pageSize);
+    private bool IsFirstPage => CurrentPage == 1;
+    private bool IsLastPage => CurrentPage == TotalPages;
+    private IEnumerable<Product> displayedProducts;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        LoadProducts();
+    }
+
+    private void OnClickAddProduct()
+    {
+        NavigationManager.NavigateTo("addproduct");
+    }
+
+    private void OnEditProduct(Product product)
+    {
+        NavigationManager.NavigateTo($"/editproduct/{product.ProductId}");
+    }
+
+    private void OnDelteProduct(int productId)
+    {
+        DeleteProductUseCase.Execute(productId);
+        LoadProducts();
+    }
+
+    private void LoadProducts()
+    {
+        products = ViewProductsUseCase.Execute().ToList();
+        UpdateDisplayedProducts();
+    }
+
+    private void UpdateDisplayedProducts()
+    {
+        displayedProducts = products
+            .Skip((CurrentPage - 1) * pageSize)
+            .Take(pageSize);
+    }
+
+    private void HandlePageChange(int newPage)
+    {
+        CurrentPage = newPage;
+        UpdateDisplayedProducts();
+    }
+}

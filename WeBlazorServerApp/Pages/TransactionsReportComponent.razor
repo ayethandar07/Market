@@ -1,0 +1,137 @@
+﻿@page "/transaction"
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@using CoreBussiness;
+
+@inject UseCases.UseCasesInterfaces.IGetTransactionsUseCase GetTransactionsUseCase
+@inject IJSRuntime JSRuntime
+
+<h3>Transactions Report</h3>
+
+<div class="row">
+    <div class="col-2">
+        <label for="cashier"> Cashier Name </label>
+        <input type="text" id="cashier" class="form-control" @bind-value="cashierName" />
+    </div>
+
+    <div class="col-3">
+        <label for="startdate"> Start Date </label>
+        <input type="date" id="startdate" class="form-control" @bind-value="startDate" />
+    </div>
+
+    <div class="col-3">
+        <label for="enddate"> End Date </label>
+        <input type="date" id="enddate" class="form-control" @bind-value="endDate" />
+    </div>
+
+    <div class="col-2">
+        <br />
+        <button type="button" class="btn btn-primary form-control" @onclick="LoadTransactions"> Search </button>
+    </div>
+
+    <div class="col-2">
+        <br />
+        <button type="button" class="btn btn-primary form-control" @onclick="PrintReport"> Print </button>
+    </div>
+</div>
+
+<br />
+
+@if(transactions != null)
+{
+    <div id="printarea">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date Time</th>
+                    <th>Cashier Name</th>
+                    <th>Product Name</th>
+                    <th>Qty Before</th>
+                    <th>Qty Sold</th>
+                    <th>Qty After</th>
+                    <th>Price</th>
+                    <th>Sold Amt</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tran in displayedTransactions)
+                {
+                    <tr>
+                        <td> @tran.TimeStamp.ToString("yyyy-MM-dd hh:mm") </td>
+                        <td> @tran.CashierName </td>
+                        <td> @tran.ProductName </td>
+                        <td> @tran.BeforeQty </td>
+                        <td> @tran.SoldQty </td>
+                        <td> @(tran.BeforeQty - tran.SoldQty) </td>
+                        <td style="text-align:center"> @(string.Format("{0:c}", tran.Price))</td>
+                        <td style="text-align:right"> @(string.Format("{0:c}", tran.SoldQty * tran.Price)) </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6"> &nbsp; </td>
+                    <td style="text-align:right">
+                        <b> Grand Total: </b>
+                    </td>
+                    <td style="text-align:right">
+                        <b>
+                            @(string.Format("{0:c}", displayedTransactions.Sum(x => x.Price * x.SoldQty)))
+                        </b>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="blockquote-footer">
+        <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" IsFirstPage="IsFirstPage" IsLastPage="IsLastPage" PageChanged="HandlePageChange" />
+    </div>
+}
+
+@code {
+    private string cashierName;
+    private DateTime startDate;
+    private DateTime endDate;
+    private IEnumerable<Transaction> transactions;
+
+    private int CurrentPage = 1;
+    private int pageSize = 10;
+    private int TotalPages => (int)Math.Ceiling((double)transactions.Count() / pageSize);
+    private bool IsFirstPage => CurrentPage == 1;
+    private bool IsLastPage => CurrentPage == TotalPages;
+    private IEnumerable<Transaction> displayedTransactions; // Transactions to display on the current page
+
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        startDate = DateTime.Today;
+        endDate = DateTime.Today;
+    }
+
+    private void LoadTransactions()
+    {
+        transactions = GetTransactionsUseCase.Execute(cashierName, startDate, endDate);
+        UpdateDisplayedTransactions();
+    }
+
+    private void UpdateDisplayedTransactions()
+    {
+        displayedTransactions = transactions
+            .Skip((CurrentPage - 1) * pageSize)
+            .Take(pageSize);
+    }
+
+    private void HandlePageChange(int newPage)
+    {
+        CurrentPage = newPage;
+        UpdateDisplayedTransactions();
+    }
+
+    private void PrintReport()
+    {
+        JSRuntime.InvokeVoidAsync("print");
+    }
+}
